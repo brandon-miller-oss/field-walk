@@ -21,6 +21,25 @@
    "note": "Autodesk Revit sample: mixed-use, 6 disciplines"
   },
   {
+   "id": "revit-mep",
+   "title": "Revit MEP sample",
+   "container": "RVM-DUL-ZZ-ZZ-M3-Z-0001",
+   "disciplines": [
+    "arch",
+    "hvac",
+    "plumb",
+    "elec",
+    "fire"
+   ],
+   "elements": 6787,
+   "levels": 4,
+   "hard": 31,
+   "penetrations": 570,
+   "triangles": 593747,
+   "added": "2026-09-30",
+   "note": "Autodesk Revit sample: 3-storey office, MEP with linked architecture"
+  },
+  {
    "id": "duplex",
    "title": "Duplex (buildingSMART sample)",
    "container": "DUP-DUL-ZZ-ZZ-M3-Z-0001",
