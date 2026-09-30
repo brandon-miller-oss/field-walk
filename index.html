@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Field Walk: Projects</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root { box-sizing: border-box; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+  --slate: #1c262c; --slate2: #26333b; --ink: #1c262c; --dim: #5b6a72; --line: #d6dcdf; --paper: #f4f6f7; --card: #ffffff; --vis: #ff7a1a;
+  --shared: #e8a317; --published: #3fb950; --wip: #8a969c; font-family: "Barlow", "Segoe UI", system-ui, sans-serif; }
+*, *::before, *::after { box-sizing: inherit; }
+[hidden] { display: none !important; }
+html, body { margin: 0; background: var(--paper); color: var(--ink); }
+.bar { background: var(--slate); color: #eef2f3; }
+.bar-in { max-width: 1120px; margin: 0 auto; padding: 22px 24px; display: flex; gap: 16px; align-items: baseline; flex-wrap: wrap; }
+.bar h1 { margin: 0; font-size: 28px; letter-spacing: .01em; }
+.bar h1 span { color: var(--vis); }
+.bar p { margin: 0; color: #9fb0b9; font-size: 16px; }
+main { max-width: 1120px; margin: 0 auto; padding: 28px 24px 48px; }
+h2 { font-size: 20px; margin: 0 0 14px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; }
+.thumb { background: #e9ecee; aspect-ratio: 16 / 10; display: grid; place-items: center; overflow: hidden; }
+.thumb img { width: 100%; height: 100%; object-fit: contain; }
+.body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+.body h3 { margin: 0; font-size: 21px; }
+.note { margin: 0; color: var(--dim); font-size: 15px; }
+.iso { font-size: 13px; color: var(--dim); display: flex; align-items: center; gap: 8px; }
+.iso i { width: 10px; height: 10px; border-radius: 3px; background: var(--wip); display: inline-block; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 2px 0; }
+.stat { background: var(--paper); border-radius: 8px; padding: 7px 8px; }
+.stat b { display: block; font-size: 18px; }
+.stat span { font-size: 12px; color: var(--dim); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 12.5px; padding: 3px 9px; border-radius: 99px; background: #e8edf0; color: #33434c; font-weight: 600; }
+.last { font-size: 13.5px; color: var(--dim); min-height: 18px; }
+.open { margin-top: auto; display: block; text-align: center; background: var(--vis); color: #1a1a1a; font-weight: 700; font-size: 17px;
+  text-decoration: none; border-radius: 10px; padding: 12px; }
+.open:hover { filter: brightness(1.05); }
+.open:focus-visible, a:focus-visible { outline: 3px solid var(--slate); outline-offset: 2px; }
+.add { margin-top: 36px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; }
+.add p { margin: 8px 0; color: #33434c; line-height: 1.5; }
+pre { background: var(--slate); color: #eef2f3; padding: 14px 16px; border-radius: 10px; overflow-x: auto; font-size: 14px; line-height: 1.5; }
+.warn { border-left: 5px solid var(--shared); padding: 10px 14px; background: #fff8e8; border-radius: 8px; color: #4a3a10; }
+.empty { color: var(--dim); }
+@media (max-width: 520px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+<div class="bar"><div class="bar-in"><h1>Field <span>Walk</span></h1><p>VR model review and clash walkthroughs</p></div></div>
+<main>
+  <h2>Projects</h2>
+  <div class="grid" id="grid"><p class="empty">Loading projects…</p></div>
+
+  <section class="add" aria-labelledby="addh">
+    <h2 id="addh">Add a project</h2>
+    <p>Export each discipline from Revit as IFC, then run one command from this site's folder on a computer with Python:</p>
+<pre>pip install ifcopenshell fast_simplification python-fcl numpy
+python add_project.py --id myproject --name "My Project" \
+    arch=Arch.ifc struct=Struct.ifc hvac=Mech.ifc plumb=Plumb.ifc elec=Elec.ifc</pre>
+    <p>Use whichever disciplines you have. The script reads geometry, finds clashes, detects levels and writes a new folder under <code>projects/</code>. Upload that folder and <code>projects/index.json</code> to the host, and the project appears here. The IFC files are only read, never changed.</p>
+    <p class="warn">This site is public unless your host requires a login. Only upload sample or approved models. Client models need an access-controlled host.</p>
+  </section>
+</main>
+<script>
+(async () => {
+  const grid = document.getElementById('grid');
+  const esc = (s) => String(s ?? '').replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+  const DISC = { arch: 'Architecture', struct: 'Structure', hvac: 'HVAC', plumb: 'Plumbing', elec: 'Electrical', fire: 'Fire', site: 'Site' };
+  const STATE = { WIP: ['Work in progress', 'var(--wip)'], Shared: ['Shared', 'var(--shared)'], Published: ['Published', 'var(--published)'], Archived: ['Archived', '#6d7c85'] };
+  let idx;
+  try { const r = await fetch('projects/index.json', { cache: 'no-store' }); if (!r.ok) throw new Error(r.status); idx = await r.json(); }
+  catch (err) { grid.innerHTML = '<p class="empty">No projects found. Add one with add_project.py, or check that the projects folder was uploaded.</p>'; return; }
+  const read = (k) => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } };
+  grid.innerHTML = (idx.projects || []).map(p => {
+    const sess = read('fieldwalk-session-' + p.container) || {};
+    const st = STATE[sess.state || 'Shared'];
+    const rev = ((sess.state === 'Published' || sess.state === 'Archived') ? 'C' : 'P') + String(sess.rev || 1).padStart(2, '0');
+    const last = read('fieldwalk-state-' + p.container);
+    const lastTxt = last && ((last.issues || []).length || (last.edits || []).length)
+      ? `Last session: ${(last.issues || []).length} issues, ${(last.edits || []).length} edits, saved ${new Date(last.saved).toLocaleDateString()}` : '';
+    return `<article class="card">
+      <div class="thumb"><img src="projects/${encodeURIComponent(p.id)}/thumb.svg" alt="Plan view of ${esc(p.title)}" loading="lazy"></div>
+      <div class="body">
+        <h3>${esc(p.title)}</h3>
+        ${p.note ? `<p class="note">${esc(p.note)}</p>` : ''}
+        <div class="iso"><i style="background:${st[1]}"></i>${esc(p.container)}  ${rev}  ${esc(sess.code || 'S1')} ${st[0]}</div>
+        <div class="stats">
+          <div class="stat"><b>${Number(p.elements).toLocaleString()}</b><span>elements</span></div>
+          <div class="stat"><b>${p.levels}</b><span>levels</span></div>
+          <div class="stat"><b>${Number(p.hard).toLocaleString()}</b><span>hard clashes</span></div>
+          <div class="stat"><b>${Number(p.penetrations).toLocaleString()}</b><span>penetrations</span></div>
+        </div>
+        <div class="chips">${(p.disciplines || []).map(d => `<span class="chip">${DISC[d] || esc(d)}</span>`).join('')}</div>
+        <div class="last">${esc(lastTxt)}</div>
+        <a class="open" href="viewer.html?p=${encodeURIComponent(p.id)}">Open project</a>
+      </div></article>`;
+  }).join('') || '<p class="empty">No projects yet.</p>';
+})();
+</script>
+</body>
+</html>
