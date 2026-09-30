@@ -27,15 +27,16 @@
    "disciplines": [
     "arch",
     "hvac",
-    "plumb"
+    "plumb",
+    "elec"
    ],
-   "elements": 1200,
+   "elements": 1303,
    "levels": 3,
-   "hard": 62,
-   "penetrations": 419,
-   "triangles": 173410,
+   "hard": 84,
+   "penetrations": 492,
+   "triangles": 180552,
    "added": "2026-09-30",
-   "note": "buildingSMART sample: two-family house, 3 disciplines"
+   "note": "buildingSMART sample: two-family house, 4 disciplines"
   }
  ]
 }
