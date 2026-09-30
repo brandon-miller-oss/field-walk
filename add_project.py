@@ -18,7 +18,8 @@ import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
 ALIASES = {'arch': 'arch', 'architecture': 'arch', 'architectural': 'arch', 'struct': 'struct', 'structure': 'struct',
            'structural': 'struct', 'hvac': 'hvac', 'mech': 'hvac', 'mechanical': 'hvac', 'plumb': 'plumb', 'plumbing': 'plumb',
-           'elec': 'elec', 'electrical': 'elec', 'fire': 'fire', 'fireprotection': 'fire', 'site': 'site', 'civil': 'site'}
+           'elec': 'elec', 'electrical': 'elec', 'fire': 'fire', 'fireprotection': 'fire', 'site': 'site', 'civil': 'site',
+           'mep': 'mep', 'services': 'mep'}
 ORDER = ['struct', 'arch', 'hvac', 'plumb', 'elec', 'fire', 'site']
 MEP = ['hvac', 'plumb', 'elec', 'fire']
 SKIP = {'IfcOpeningElement', 'IfcSpace', 'IfcDistributionPort', 'IfcSite', 'IfcBuilding', 'IfcBuildingStorey', 'IfcAnnotation',
@@ -83,9 +84,9 @@ def extract(disc, path, work, arch_structural):
     settings = ifcopenshell.geom.settings(); settings.set('use-world-coords', True)
     skip = [e for c in SKIP for e in model.by_type(c)] if model.schema else []
     it = ifcopenshell.geom.iterator(settings, model, 1, exclude=skip) if skip else ifcopenshell.geom.iterator(settings, model, 1)
-    clash_set = None if disc in MEP else (STRUCTURAL if disc == 'struct' else (WALLS | STRUCTURAL if arch_structural else WALLS) if disc == 'arch' else set())
+    clash_set = None if disc in MEP + ['mep'] else (STRUCTURAL if disc == 'struct' else (WALLS | STRUCTURAL if arch_structural else WALLS) if disc == 'arch' else set())
     systems = {}
-    if disc in MEP:
+    if disc in MEP + ['mep']:
         for s in model.by_type('IfcSystem'):
             cat = from_system(s.Name)
             if cat:
@@ -159,9 +160,10 @@ def clashes(work, discs):
         p = os.path.join(work, f'{d}_full.npz')
         if not os.path.exists(p): continue
         z = np.load(p); meta = json.load(open(os.path.join(work, f'{d}.json')))['meta']
+        ids, pos, idx, voff, toff = z['ids'], z['pos'], z['idx'], z['voff'], z['toff']  # .npz reloads on every access; read once
         items = []
-        for n, i in enumerate(z['ids']):
-            v = z['pos'][z['voff'][n]:z['voff'][n + 1]].astype(np.float64); f = z['idx'][z['toff'][n]:z['toff'][n + 1]].reshape(-1, 3).astype(np.int64)
+        for n, i in enumerate(ids):
+            v = pos[voff[n]:voff[n + 1]].astype(np.float64); f = idx[toff[n]:toff[n + 1]].reshape(-1, 3).astype(np.int64)
             items.append({'i': int(i), 'cls': meta[i]['cls'], 'v': v, 'f': f, 'lo': v.min(0), 'hi': v.max(0)})
         data[d] = items
     mep = [d for d in MEP if d in data]
@@ -336,6 +338,53 @@ def package(work, discs, dest, pid, name, container, clash_list):
     return {'id': pid, 'title': name, 'container': container, 'disciplines': discs, 'elements': len(els), 'levels': len([l for l in levels if l['id'] != 'S']),
             'hard': hard, 'penetrations': len(clist) - hard, 'triangles': sum(l['tris'] for l in levels),
             'added': datetime.date.today().isoformat()}
+# ------------------------------------------------------------------ combined MEP files: split into trades so they clash against each other
+TRADE = {'hvac': 'hvac', 'potable': 'plumb', 'sewer': 'plumb', 'gas': 'plumb', 'reclaimed': 'plumb', 'plumbother': 'plumb',
+         'elec': 'elec', 'telecom': 'elec', 'fire': 'fire'}
+BUILDING = {'IfcWall', 'IfcWallStandardCase', 'IfcSlab', 'IfcMember', 'IfcPlate', 'IfcCurtainWall', 'IfcBeam', 'IfcColumn', 'IfcDoor',
+            'IfcWindow', 'IfcRoof', 'IfcStair', 'IfcStairFlight', 'IfcRamp', 'IfcRampFlight', 'IfcRailing', 'IfcCovering', 'IfcFooting',
+            'IfcFurnishingElement', 'IfcFurniture', 'IfcPile', 'IfcChimney', 'IfcShadingDevice'}
+MEP_WORDS = r'duct|diffuser|grille|register|vav|ahu|rtu|wshp|heat pump|fan|damper|air terminal|pipe|valve|pump|fixture|sink|lavatory|toilet|water|drain|conduit|cable|light|luminaire|panel|receptacle|switch|outlet|junction|transformer|sensor|data|tele|sprinkler|fire|alarm'
+def mep_trade(m):
+    if m.get('sys'): return TRADE[m['sys']]
+    c, t = m['cls'], f"{m.get('type') or ''} {m.get('name') or ''}".lower()
+    # combined MEP exports often carry the linked architecture; keep it as context, not as a trade
+    if c in BUILDING: return 'arch'
+    if c == 'IfcBuildingElementProxy' and not re.search(MEP_WORDS, t): return 'arch'
+    if re.search(r'Duct|AirTerminal|Fan|Damper|UnitaryEquipment|Chiller|Boiler|Coil|AirToAir|Humidifier|Compressor|CoolingTower|Evaporat|Condenser', c) or re.search(r'duct|diffuser|grille|register|vav|ahu|rtu|fan|damper|air terminal', t): return 'hvac'
+    if re.search(r'FireSuppression|Alarm', c) or re.search(r'sprinkler|fire', t): return 'fire'
+    if re.search(r'Cable|Light|Lamp|Electric|Outlet|Switching|JunctionBox|ProtectiveDevice|Transformer|MotorConnection|CommunicationsAppliance|AudioVisual', c) or re.search(r'conduit|cable|light|luminaire|panel|receptacle|switch|outlet|junction|data|tele', t): return 'elec'
+    return 'plumb'
+
+def split_mep(work, existing):
+    j = json.load(open(os.path.join(work, 'mep.json'))); z = np.load(os.path.join(work, 'mep.npz'))
+    P, I = z['pos'], z['idx']  # .npz reloads on every access; read once
+    fp = os.path.join(work, 'mep_full.npz'); zf = np.load(fp) if os.path.exists(fp) else None
+    if zf is not None: zf = {k: zf[k] for k in ('ids', 'pos', 'idx', 'voff', 'toff')}
+    trades = [mep_trade(m) for m in j['meta']]
+    vo = np.cumsum([0] + [m['vn'] for m in j['meta']]); to = np.cumsum([0] + [m['tn'] for m in j['meta']])
+    full_of = {int(i): n for n, i in enumerate(zf['ids'])} if zf is not None else {}
+    made = []
+    for tr in ['arch', 'hvac', 'plumb', 'elec', 'fire']:
+        idx = [k for k, t in enumerate(trades) if t == tr]
+        if not idx: continue
+        if tr == 'arch' and 'arch' in existing: print(f'  mep: {len(idx)} linked architecture elements skipped (arch= given)'); continue
+        if tr in existing: raise SystemExit(f'mep= and {tr}= both given; the combined file already contains {tr}')
+        meta = []
+        for k in idx: m = dict(j['meta'][k]); m['disc'] = tr; meta.append(m)
+        np.savez(os.path.join(work, f'{tr}.npz'), pos=np.concatenate([P[vo[k]:vo[k + 1]] for k in idx]),
+                 idx=np.concatenate([I[to[k]:to[k + 1]] for k in idx]))
+        if zf is not None:
+            # linked architecture only clashes as walls and structure, same as a separate arch= file
+            fk = [(n, full_of[k]) for n, k in enumerate(idx) if k in full_of and (tr != 'arch' or j['meta'][k]['cls'] in (WALLS | STRUCTURAL))]
+            if fk:
+                pv = [zf['pos'][zf['voff'][f]:zf['voff'][f + 1]] for _, f in fk]; ti = [zf['idx'][zf['toff'][f]:zf['toff'][f + 1]] for _, f in fk]
+                np.savez(os.path.join(work, f'{tr}_full.npz'), ids=np.array([n for n, _ in fk]), pos=np.concatenate(pv), idx=np.concatenate(ti),
+                         voff=np.cumsum([0] + [len(p) for p in pv]), toff=np.cumsum([0] + [len(t) for t in ti]))
+        json.dump({'meta': meta, 'storeys': j['storeys']}, open(os.path.join(work, f'{tr}.json'), 'w'), separators=(',', ':'))
+        made.append(tr); print(f'  mep -> {tr}: {len(idx)} elements' + (' (linked architecture)' if tr == 'arch' else ''), flush=True)
+    return made
+
 
 def register(site, entry):
     idx_path = os.path.join(site, 'projects', 'index.json')
@@ -362,7 +411,7 @@ def main():
         if not d: raise SystemExit(f'Unknown discipline "{k}". Use: {", ".join(sorted(set(ALIASES)))}')
         if not os.path.exists(p): raise SystemExit(f'File not found: {p}')
         files[d] = p
-    discs = [d for d in ORDER if d in files]
+    discs = [d for d in ORDER + ['mep'] if d in files]
     container = a.container or f'{pid[:3].upper()}-DUL-ZZ-ZZ-M3-Z-0001'
     work = tempfile.mkdtemp(prefix='fieldwalk-')
     t0 = time.time()
@@ -371,6 +420,10 @@ def main():
         for d in discs:  # one process per file keeps memory down on big models
             r = subprocess.run([sys.executable, os.path.abspath(__file__), '--_extract', d, files[d], work, '1' if 'struct' not in files else '0'])
             if r.returncode: raise SystemExit(f'Failed while reading {files[d]}')
+        if 'mep' in discs:
+            discs.remove('mep')
+            made = set(split_mep(work, discs))
+            discs = [d for d in ORDER if d in set(discs) | made]
         print('2/3 Finding clashes', flush=True)
         cl = clashes(work, discs)
         print('3/3 Packaging levels', flush=True)
