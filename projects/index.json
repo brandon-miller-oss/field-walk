@@ -1,0 +1,41 @@
+{
+ "projects": [
+  {
+   "id": "snowdon",
+   "title": "Snowdon Towers",
+   "container": "STW-DUL-ZZ-ZZ-M3-Z-0001",
+   "disciplines": [
+    "struct",
+    "arch",
+    "hvac",
+    "plumb",
+    "elec",
+    "site"
+   ],
+   "elements": 19852,
+   "levels": 7,
+   "hard": 167,
+   "penetrations": 2327,
+   "triangles": 2476000,
+   "added": "2026-09-30",
+   "note": "Autodesk Revit sample: mixed-use, 6 disciplines"
+  },
+  {
+   "id": "duplex",
+   "title": "Duplex (buildingSMART sample)",
+   "container": "DUP-DUL-ZZ-ZZ-M3-Z-0001",
+   "disciplines": [
+    "arch",
+    "hvac",
+    "plumb"
+   ],
+   "elements": 1200,
+   "levels": 3,
+   "hard": 62,
+   "penetrations": 419,
+   "triangles": 173410,
+   "added": "2026-09-30",
+   "note": "buildingSMART sample: two-family house, 3 disciplines"
+  }
+ ]
+}
