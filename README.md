@@ -8,13 +8,11 @@ WebXR BIM walkthrough viewer with clash review, structured issues, and BCF / rep
 - `add_project.py`: turns IFC files into a new project folder and adds it to the launch page.
 
 ## Hosting
-Upload the whole folder to any HTTPS host (GitHub Pages, Netlify, Cloudflare Pages).
+Upload the whole folder to GitHub
 HTTPS is required for VR. Opening the files straight from disk will not work,
 because browsers block loading project files over file://.
 
-This site is public unless the host requires a login. Only upload sample or approved
-models; client models need an access-controlled host (for example Cloudflare Pages
-with Cloudflare Access).
+This site is public until the host requires a login.
 
 ## Adding a project
     pip install ifcopenshell fast_simplification python-fcl numpy
