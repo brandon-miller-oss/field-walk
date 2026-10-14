@@ -21,6 +21,46 @@
    "note": "Autodesk Revit sample: mixed-use, 6 disciplines"
   },
   {
+   "id": "clinic",
+   "title": "Medical Clinic (NIBS)",
+   "container": "MCL-DUL-ZZ-ZZ-M3-Z-0001",
+   "disciplines": [
+    "struct",
+    "arch",
+    "hvac",
+    "plumb",
+    "elec",
+    "fire"
+   ],
+   "elements": 19675,
+   "levels": 3,
+   "hard": 502,
+   "penetrations": 3123,
+   "triangles": 2495139,
+   "added": "2026-10-01",
+   "note": "NIBS sample: medical clinic, architecture, structure and full MEP with sprinklers"
+  },
+  {
+   "id": "mcbride",
+   "title": "McBride Brothers (Louisville, 1996)",
+   "container": "MCB-DUL-ZZ-ZZ-M3-Z-0001",
+   "disciplines": [
+    "struct",
+    "arch",
+    "hvac",
+    "plumb",
+    "elec",
+    "fire"
+   ],
+   "elements": 585,
+   "levels": 2,
+   "hard": 6,
+   "penetrations": 28,
+   "triangles": 17992,
+   "added": "2026-10-14",
+   "note": "Modeled from the 1996 scanned plan set: tilt-up manufacturing building with office wing, LOD 200"
+  },
+  {
    "id": "revit-mep",
    "title": "Revit MEP sample",
    "container": "RVM-DUL-ZZ-ZZ-M3-Z-0001",
