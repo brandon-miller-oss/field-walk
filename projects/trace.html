@@ -1,0 +1,714 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Field Walk: Trace a plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root { box-sizing: border-box; --slate: #1c262c; --slate2: #26333b; --line: #3a4a54; --ink: #eef2f3; --dim: #9fb0b9; --vis: #ff7a1a;
+  --paper: #f4f6f7; --ok: #3fb950; font-family: "Barlow", "Segoe UI", system-ui, sans-serif; }
+*, *::before, *::after { box-sizing: inherit; }
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; background: #c9d1d5; color: var(--ink); overflow: hidden; }
+.app { display: grid; grid-template-columns: 300px 1fr; grid-template-rows: auto 1fr; height: 100%; }
+header { grid-column: 1 / -1; background: var(--slate); display: flex; align-items: center; gap: 8px; padding: 10px 14px; flex-wrap: wrap; }
+header button, header .filebtn { padding: 7px 10px; }
+header h1 { margin: 0; font-size: 20px; } header h1 span { color: var(--vis); }
+header a { color: var(--dim); text-decoration: none; font-weight: 600; } header a:hover { color: var(--ink); }
+.grow { flex: 1; }
+button, select, input, .filebtn { font: 600 14px "Barlow", system-ui, sans-serif; }
+button, .filebtn { background: var(--slate2); color: var(--ink); border: 1px solid var(--line); border-radius: 9px; padding: 8px 11px; cursor: pointer; }
+button:hover, .filebtn:hover { border-color: #5a6c76; }
+button.primary { background: var(--vis); color: #1a1a1a; border-color: var(--vis); }
+button.on { background: var(--vis); color: #1a1a1a; border-color: var(--vis); }
+button:disabled { opacity: .45; cursor: default; }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid var(--vis); outline-offset: 1px; }
+aside { background: var(--slate); border-right: 1px solid var(--line); overflow-y: auto; padding: 12px 14px 24px; }
+aside h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); margin: 16px 0 8px; }
+aside h2:first-child { margin-top: 2px; }
+.tools { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.tools button { text-align: left; padding: 9px 10px; }
+.tools button small { display: block; font-weight: 500; color: inherit; opacity: .75; font-size: 12px; }
+.hint { font-size: 13.5px; line-height: 1.4; color: var(--dim); background: #141c21; border-radius: 9px; padding: 9px 11px; margin-top: 8px; }
+.hint b { color: var(--ink); }
+label.f { display: grid; gap: 3px; font-size: 12.5px; color: var(--dim); margin-top: 8px; }
+label.f input, label.f select { background: #141c21; color: var(--ink); border: 1px solid var(--line); border-radius: 7px; padding: 7px 8px; width: 100%; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.list { display: grid; gap: 4px; margin-top: 6px; }
+.item { display: flex; align-items: center; gap: 8px; background: #141c21; border: 1px solid transparent; border-radius: 8px; padding: 6px 8px; font-size: 13.5px; cursor: pointer; }
+.item.sel { border-color: var(--vis); }
+.item i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.item span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item button { padding: 2px 7px; font-size: 12px; }
+.stage { position: relative; overflow: hidden; display: grid; }
+.stage.split { grid-template-columns: 1fr 1fr; }
+#plan, #view3d { width: 100%; height: 100%; display: block; touch-action: none; }
+#plan { cursor: crosshair; background: #e9ecee; }
+.pane { position: relative; min-width: 0; min-height: 0; }
+.badge { position: absolute; left: 10px; top: 10px; background: rgba(28,38,44,.88); padding: 6px 10px; border-radius: 8px; font-size: 13px; pointer-events: none; }
+.empty { position: absolute; inset: 0; display: grid; place-items: center; color: #1c262c; text-align: center; pointer-events: none; }
+.empty div { max-width: 440px; font-size: 16px; line-height: 1.5; }
+.empty b { font-size: 22px; display: block; margin-bottom: 6px; }
+#toast { position: fixed; left: 50%; bottom: 22px; transform: translate(-50%, 20px); opacity: 0; background: var(--slate); padding: 11px 16px; border-radius: 11px; font-weight: 600; transition: .2s; pointer-events: none; z-index: 30; max-width: 90vw; text-align: center; }
+#toast.on { opacity: 1; transform: translate(-50%, 0); }
+#ask { position: fixed; inset: 0; background: rgba(15,20,24,.55); display: grid; place-items: center; z-index: 40; }
+.askbox { background: var(--slate); border-radius: 14px; padding: 18px; width: min(420px, 92vw); display: grid; gap: 10px; }
+.askbox label { font-weight: 700; } .askbox p { margin: 0; color: var(--dim); font-size: 13.5px; }
+.askbox input { font: 500 17px "Barlow", system-ui, sans-serif; padding: 10px; border-radius: 9px; border: 1px solid var(--line); background: #121a1f; color: var(--ink); }
+.askrow { display: flex; gap: 8px; justify-content: flex-end; }
+@media (prefers-reduced-motion: reduce) { #toast { transition: none; } }
+@media (max-width: 860px) { .app { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr; } aside { max-height: 42vh; border-right: 0; } }
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <a href="index.html">← Projects</a>
+  <h1>Trace a <span>plan</span></h1>
+  <label class="filebtn" for="pdfIn">Open PDF plan set</label><input id="pdfIn" type="file" accept="application/pdf" hidden>
+  <select id="page" disabled aria-label="Sheet"><option>No PDF loaded</option></select>
+  <span class="grow"></span>
+  <button id="undo" disabled>Undo</button>
+  <button id="toggle3d">Show 3D</button>
+  <label class="filebtn" for="traceIn">Open trace</label><input id="traceIn" type="file" accept=".json,application/json" hidden>
+  <button id="saveTrace">Save trace</button>
+  <button id="exportIfc">Export IFC</button>
+  <button id="toFieldWalk" class="primary">Open in Field Walk</button>
+  <button id="exportZip">Download project</button>
+</header>
+<aside>
+  <h2>Project</h2>
+  <label class="f">Project name<input id="pName" value="Traced building"></label>
+  <h2>Tools</h2>
+  <div class="tools" role="toolbar" aria-label="Tracing tools">
+    <button data-tool="pan">Pan<small>drag, wheel zoom</small></button>
+    <button data-tool="scale">Scale<small>2 clicks + length</small></button>
+    <button data-tool="volume">Outline<small>exterior walls</small></button>
+    <button data-tool="wall">Wall<small>interior lines</small></button>
+    <button data-tool="door">Door / window<small>click a wall</small></button>
+    <button data-tool="grid">Column grid<small>click A1, spacings</small></button>
+  </div>
+  <div class="hint" id="hint"></div>
+  <div id="props"></div>
+  <h2>Elements</h2>
+  <div class="list" id="list"></div>
+</aside>
+<main class="stage" id="stage">
+  <div class="pane" id="planPane"><canvas id="plan"></canvas><div class="badge" id="badge">No scale set</div>
+    <div class="empty" id="empty"><div><b>Open a PDF plan set to start</b>Scanned or CAD-exported sheets both work. Pick the floor plan, set the scale from one dimension, then click around the outside walls.</div></div></div>
+  <div class="pane" id="pane3d" hidden><canvas id="view3d"></canvas><div class="badge">3D preview: drag to orbit, wheel to zoom</div></div>
+</main>
+</div>
+<div id="toast" role="status"></div>
+<div id="ask" hidden><div class="askbox"><label id="askLabel" for="askInput"></label><p id="askHelp"></p><input id="askInput" autocomplete="off">
+<div class="askrow"><button id="askCancel">Cancel</button><button id="askOk" class="primary">OK</button></div></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+<script>
+(() => {
+'use strict';
+const $ = (s) => document.querySelector(s);
+pdfjsLib.GlobalWorkerOptions.workerSrc = (window.PDFJS_WORKER || 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js');
+const FT = 0.3048;
+const toast = (m) => { const t = $('#toast'); t.textContent = m; t.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 2600); };
+
+// ------------------------------------------------------------------ wall and opening types
+const WALL_TYPES = {
+  precast: { label: 'Precast panel 7"', t: 7 / 12, color: '#c9c4ba', height: 23 },
+  cmu:     { label: 'CMU 8"', t: 8 / 12, color: '#b8a48e', height: 14.67 },
+  stud:    { label: 'Metal stud 5"', t: 5 / 12, color: '#dcd9d2', height: 9 },
+  wood:    { label: 'Wood frame 2x6', t: 6.5 / 12, color: '#d6cbb5', height: 9 },
+  glass:   { label: 'Storefront glazing', t: 4 / 12, color: '#86aebd', height: 10 },
+};
+const OPEN_TYPES = {
+  door:      { label: 'Door 3\'-0" x 7\'-0"', w: 3, h: 7, sill: 0, cls: 'IfcDoor' },
+  pair:      { label: 'Pair of doors 6\'-0" x 7\'-0"', w: 6, h: 7, sill: 0, cls: 'IfcDoor' },
+  ohSmall:   { label: 'Overhead door 8\'-0" x 10\'-0"', w: 8, h: 10, sill: 0, cls: 'IfcDoor' },
+  ohLarge:   { label: 'Overhead door 16\'-0" x 12\'-0"', w: 16, h: 12, sill: 0, cls: 'IfcDoor' },
+  window:    { label: 'Window 4\'-0" x 6\'-0"', w: 4, h: 6, sill: 3, cls: 'IfcWindow' },
+  clerestory:{ label: 'Clerestory 3\'-0" x 3\'-0"', w: 3, h: 3, sill: 13, cls: 'IfcWindow' },
+};
+
+// ------------------------------------------------------------------ state (plan geometry in PDF units; feet via the scale)
+const blank = () => ({ version: 1, name: 'Traced building', pdfName: null, page: 1, scale: null, volumes: [], walls: [], openings: [], grids: [] });
+let S = blank();
+const undoStack = [];
+function snapshot() { undoStack.push(JSON.stringify(S)); if (undoStack.length > 80) undoStack.shift(); $('#undo').disabled = false; }
+function undo() { const s = undoStack.pop(); if (!s) return; S = JSON.parse(s); sel = null; $('#undo').disabled = !undoStack.length; refresh(); }
+let tool = 'pan', sel = null, draft = [];
+const ftPer = () => S.scale ? S.scale.feet / Math.hypot(S.scale.b[0] - S.scale.a[0], S.scale.b[1] - S.scale.a[1]) : null;
+const uid = () => Math.random().toString(36).slice(2, 9);
+
+// ------------------------------------------------------------------ feet-inch parsing: 176'-6", 176-6, 176.5, 29' 2", 12"
+function parseLen(s) {
+  s = String(s).trim().replace(/[″”]/g, '"').replace(/[′’]/g, "'");
+  if (!s) return NaN;
+  let m = s.match(/^(-?\d+(?:\.\d+)?)\s*'\s*-?\s*(\d+(?:\.\d+)?)?\s*(?:(\d+)\/(\d+))?\s*"?$/);
+  if (m) return +m[1] + ((m[2] ? +m[2] : 0) + (m[3] ? m[3] / m[4] : 0)) / 12;
+  m = s.match(/^(\d+(?:\.\d+)?)\s*"$/); if (m) return +m[1] / 12;
+  m = s.match(/^(\d+)\s*-\s*(\d+(?:\.\d+)?)$/); if (m) return +m[1] + +m[2] / 12;
+  return parseFloat(s);
+}
+const fmtLen = (f) => { const neg = f < 0; f = Math.abs(f); let ft = Math.floor(f), inch = Math.round((f - ft) * 12 * 4) / 4; if (inch >= 12) { ft++; inch -= 12; } return `${neg ? '-' : ''}${ft}'-${inch}"`; };
+
+// ------------------------------------------------------------------ dialog
+function ask(label, help, value = '') {
+  return new Promise((res) => {
+    $('#askLabel').textContent = label; $('#askHelp').textContent = help || ''; const inp = $('#askInput'); inp.value = value;
+    $('#ask').hidden = false; inp.focus(); inp.select();
+    const done = (v) => { $('#ask').hidden = true; $('#askOk').onclick = $('#askCancel').onclick = inp.onkeydown = null; res(v); };
+    $('#askOk').onclick = () => done(inp.value); $('#askCancel').onclick = () => done(null);
+    inp.onkeydown = (e) => { if (e.key === 'Enter') done(inp.value); if (e.key === 'Escape') done(null); e.stopPropagation(); };
+  });
+}
+
+// ------------------------------------------------------------------ PDF
+let pdf = null, sheet = null; // sheet: offscreen canvas of the current page, rendered at RS pixels per PDF unit
+const RS = 1.6;
+async function openPdf(file) {
+  try {
+    pdf = await pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+  } catch (err) { toast('Could not open that PDF'); return; }
+  if (S.pdfName && S.pdfName !== file.name && (S.volumes.length || S.walls.length)) toast('Trace was made on a different PDF; check alignment');
+  S.pdfName = file.name;
+  const sel = $('#page'); sel.innerHTML = ''; sel.disabled = false;
+  for (let i = 1; i <= pdf.numPages; i++) sel.add(new Option(`Sheet ${i} of ${pdf.numPages}`, i));
+  const label = async (i) => { try { const tc = await (await pdf.getPage(i)).getTextContent(); const t = tc.items.map(x => x.str).join(' ').trim(); if (t) sel.options[i - 1].text = `${i}: ${t.slice(0, 40)}`; } catch (e) {} };
+  for (let i = 1; i <= Math.min(pdf.numPages, 60); i++) label(i);
+  await showPage(Math.min(S.page || 1, pdf.numPages));
+  $('#empty').hidden = true;
+}
+async function showPage(n) {
+  S.page = n; $('#page').value = n;
+  const page = await pdf.getPage(n);
+  const vp = page.getViewport({ scale: RS });
+  const c = document.createElement('canvas'); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+  toast(`Rendering sheet ${n}…`);
+  await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
+  sheet = c; if (!view.fitted) fitView(); draw();
+}
+
+// ------------------------------------------------------------------ 2D view (pan / zoom in PDF units)
+const cv = $('#plan'), g = cv.getContext('2d');
+const view = { s: 1, ox: 0, oy: 0, fitted: false };
+function resize() {
+  for (const c of [cv, $('#view3d')]) { const r = c.getBoundingClientRect(); const d = Math.min(devicePixelRatio, 2); c.width = Math.max(1, r.width * d); c.height = Math.max(1, r.height * d); }
+  draw(); render3d();
+}
+function fitView() {
+  if (!sheet) return; const d = Math.min(devicePixelRatio, 2);
+  const W = sheet.width / RS, H = sheet.height / RS;
+  view.s = Math.min(cv.width / W, cv.height / H) * 0.95; view.ox = (cv.width - W * view.s) / 2; view.oy = (cv.height - H * view.s) / 2; view.fitted = true;
+}
+const toScreen = (p) => [p[0] * view.s + view.ox, p[1] * view.s + view.oy];
+const toPdf = (e) => { const r = cv.getBoundingClientRect(), d = cv.width / r.width; return [((e.clientX - r.left) * d - view.ox) / view.s, ((e.clientY - r.top) * d - view.oy) / view.s]; };
+
+// snapping: to existing points, then orthogonal to the previous point
+function snap(p, prev) {
+  const tol = 10 / view.s; let best = null, bd = tol;
+  const pts = [...S.volumes.flatMap(v => v.pts), ...S.walls.flatMap(w => [w.a, w.b]), ...draft];
+  for (const q of pts) { const d = Math.hypot(q[0] - p[0], q[1] - p[1]); if (d < bd) { bd = d; best = q; } }
+  if (best) return [best[0], best[1]];
+  if (prev && !shiftDown) { const dx = Math.abs(p[0] - prev[0]), dy = Math.abs(p[1] - prev[1]); return dx > dy ? [p[0], prev[1]] : [prev[0], p[1]]; }
+  return p;
+}
+let shiftDown = false;
+addEventListener('keydown', (e) => { if (e.key === 'Shift') shiftDown = true; });
+addEventListener('keyup', (e) => { if (e.key === 'Shift') shiftDown = false; });
+
+// ------------------------------------------------------------------ drawing
+function draw() {
+  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
+  if (sheet) { g.imageSmoothingEnabled = true; g.drawImage(sheet, view.ox, view.oy, sheet.width / RS * view.s, sheet.height / RS * view.s); }
+  const k = Math.min(devicePixelRatio, 2);
+  const line = (pts, col, w, close, dash) => { if (pts.length < 2) return; g.beginPath(); pts.forEach((p, i) => { const [x, y] = toScreen(p); i ? g.lineTo(x, y) : g.moveTo(x, y); }); if (close) g.closePath(); g.strokeStyle = col; g.lineWidth = w * k; g.setLineDash(dash || []); g.stroke(); g.setLineDash([]); };
+  const dot = (p, col, r = 4) => { const [x, y] = toScreen(p); g.beginPath(); g.arc(x, y, r * k, 0, 7); g.fillStyle = col; g.fill(); };
+  for (const gr of S.grids) for (const p of gridPoints(gr)) dot(p, '#7a2fbf', 3.5);
+  for (const v of S.volumes) {
+    const isSel = sel && sel.id === v.id;
+    g.beginPath(); v.pts.forEach((p, i) => { const [x, y] = toScreen(p); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.closePath();
+    g.fillStyle = isSel ? 'rgba(255,122,26,.18)' : 'rgba(31,111,224,.10)'; g.fill();
+    line(v.pts, isSel ? '#ff7a1a' : '#1f6fe0', isSel ? 4 : 3, true);
+    v.pts.forEach(p => dot(p, isSel ? '#ff7a1a' : '#1f6fe0', 3.5));
+  }
+  for (const w of S.walls) line([w.a, w.b], sel && sel.id === w.id ? '#ff7a1a' : '#2e9e44', 3);
+  for (const o of S.openings) { const seg = openingSeg(o); if (seg) line(seg, sel && sel.id === o.id ? '#ff7a1a' : '#e0321f', 6); }
+  if (S.scale) { line([S.scale.a, S.scale.b], '#e8a317', 2, false, [8, 6]); dot(S.scale.a, '#e8a317'); dot(S.scale.b, '#e8a317'); }
+  if (draft.length) { line([...draft, hover || draft[draft.length - 1]], '#ff7a1a', 2.5, false, [6, 5]); draft.forEach(p => dot(p, '#ff7a1a')); if (hover && (tool === 'volume' || tool === 'wall' || tool === 'scale')) {
+    const a = draft[draft.length - 1], f = ftPer(); if (f) { const [x, y] = toScreen(hover); g.font = `${600} ${13 * k}px Barlow, system-ui`; g.fillStyle = '#1c262c'; g.fillText(fmtLen(Math.hypot(hover[0] - a[0], hover[1] - a[1]) * f), x + 10 * k, y - 10 * k); } } }
+  $('#badge').textContent = S.scale ? `Scale set: ${fmtLen(S.scale.feet)} between the orange dots` : 'No scale set: use the Scale tool first';
+}
+let hover = null;
+
+// ------------------------------------------------------------------ helpers: openings sit on a volume edge or interior wall
+function edgeOf(ref) {
+  if (ref.vol) { const v = S.volumes.find(x => x.id === ref.vol); if (!v) return null; const a = v.pts[ref.edge], b = v.pts[(ref.edge + 1) % v.pts.length]; return [a, b, v]; }
+  const w = S.walls.find(x => x.id === ref.wall); return w ? [w.a, w.b, w] : null;
+}
+function openingSeg(o) {
+  const e = edgeOf(o.ref), f = ftPer(); if (!e || !f) return null;
+  const [a, b] = e, L = Math.hypot(b[0] - a[0], b[1] - a[1]), half = o.w / f / 2 / L;
+  const t0 = Math.max(0, o.t - half), t1 = Math.min(1, o.t + half);
+  return [[a[0] + (b[0] - a[0]) * t0, a[1] + (b[1] - a[1]) * t0], [a[0] + (b[0] - a[0]) * t1, a[1] + (b[1] - a[1]) * t1]];
+}
+function nearestEdge(p) {
+  let best = null, bd = 14 / view.s;
+  const test = (a, b, ref) => { const dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy; if (!L2) return;
+    const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L2)); const d = Math.hypot(a[0] + dx * t - p[0], a[1] + dy * t - p[1]);
+    if (d < bd) { bd = d; best = { ref, t }; } };
+  for (const v of S.volumes) v.pts.forEach((a, i) => test(a, v.pts[(i + 1) % v.pts.length], { vol: v.id, edge: i }));
+  for (const w of S.walls) test(w.a, w.b, { wall: w.id });
+  return best;
+}
+function gridPoints(gr) {
+  const f = ftPer(); if (!f) return [];
+  const out = []; let x = 0;
+  const xs = [0, ...gr.xs].map(v => (x += v)), ys = []; let y = 0; [0, ...gr.ys].forEach(v => ys.push(y += v));
+  for (const a of xs) for (const b of ys) out.push([gr.origin[0] + a / f, gr.origin[1] + b / f]);
+  return out;
+}
+
+// ------------------------------------------------------------------ mouse
+let dragging = null;
+cv.addEventListener('pointerdown', (e) => {
+  cv.setPointerCapture(e.pointerId);
+  if (tool === 'pan' || e.button === 1 || e.button === 2) { dragging = { x: e.clientX, y: e.clientY, ox: view.ox, oy: view.oy, moved: false, select: tool === 'pan' && e.button === 0 }; return; }
+  if (!sheet) return;
+  click(toPdf(e));
+});
+cv.addEventListener('pointermove', (e) => {
+  if (dragging) { const d = cv.width / cv.getBoundingClientRect().width; view.ox = dragging.ox + (e.clientX - dragging.x) * d; view.oy = dragging.oy + (e.clientY - dragging.y) * d; if (Math.abs(e.clientX - dragging.x) + Math.abs(e.clientY - dragging.y) > 4) dragging.moved = true; draw(); return; }
+  if (draft.length) { hover = snap(toPdf(e), tool === 'scale' ? null : draft[draft.length - 1]); draw(); }
+});
+cv.addEventListener('pointerup', (e) => { if (dragging && !dragging.moved && dragging.select) pick(toPdf(e)); dragging = null; });
+cv.addEventListener('contextmenu', (e) => e.preventDefault());
+cv.addEventListener('wheel', (e) => { e.preventDefault(); const r = cv.getBoundingClientRect(), d = cv.width / r.width; const mx = (e.clientX - r.left) * d, my = (e.clientY - r.top) * d;
+  const z = Math.exp(-e.deltaY * 0.0015); view.ox = mx - (mx - view.ox) * z; view.oy = my - (my - view.oy) * z; view.s *= z; draw(); }, { passive: false });
+cv.addEventListener('dblclick', () => { if (tool === 'volume' && draft.length >= 3) finishVolume(); });
+addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if (e.key === 'Escape') { draft = []; hover = null; draw(); }
+  if (e.key === 'Enter' && tool === 'volume' && draft.length >= 3) finishVolume();
+  if ((e.key === 'Delete' || e.key === 'Backspace') && sel) removeSel();
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); }
+});
+
+function pick(p) {
+  const near = nearestEdge(p);
+  for (const o of S.openings) { const s = openingSeg(o); if (s && segDist(p, s[0], s[1]) < 10 / view.s) { select(o.id); return; } }
+  if (near && near.ref.wall) { select(near.ref.wall); return; }
+  for (const v of S.volumes) if (inPoly(p, v.pts)) { select(v.id); return; }
+  if (near && near.ref.vol) { select(near.ref.vol); return; }
+  select(null);
+}
+const segDist = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy || 1; const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L2)); return Math.hypot(a[0] + dx * t - p[0], a[1] + dy * t - p[1]); };
+const inPoly = (p, poly) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const [xi, yi] = poly[i], [xj, yj] = poly[j]; if ((yi > p[1]) !== (yj > p[1]) && p[0] < (xj - xi) * (p[1] - yi) / (yj - yi) + xi) c = !c; } return c; };
+
+async function click(p) {
+  if (tool === 'scale') {
+    draft.push(p);
+    if (draft.length === 2) {
+      const [a, b] = draft; draft = []; hover = null;
+      const v = await ask('How long is that line?', 'Type the dimension as written on the sheet, e.g. 176\'-6" or 29-2 or 104.5', '');
+      const feet = parseLen(v);
+      if (v !== null && feet > 0) { snapshot(); S.scale = { a, b, feet }; toast(`Scale set: 1 inch on paper = ${fmtLen(feet / (Math.hypot(b[0] - a[0], b[1] - a[1]) / 72))}`); setTool('volume'); }
+      else if (v !== null) toast('Could not read that length');
+      refresh();
+    }
+    draw(); return;
+  }
+  if (!S.scale) { toast('Set the scale first: click both ends of a known dimension'); setTool('scale'); return; }
+  if (tool === 'volume') {
+    const q = snap(p, draft[draft.length - 1]);
+    if (draft.length >= 3 && Math.hypot(q[0] - draft[0][0], q[1] - draft[0][1]) < 12 / view.s) { finishVolume(); return; }
+    draft.push(q); draw(); return;
+  }
+  if (tool === 'wall') {
+    const q = snap(p, draft[draft.length - 1]); draft.push(q);
+    if (draft.length === 2) { snapshot(); const prev = S.walls[S.walls.length - 1];
+      S.walls.push({ id: uid(), a: draft[0], b: draft[1], type: prev ? prev.type : 'stud', height: prev ? prev.height : WALL_TYPES.stud.height });
+      draft = [draft[1]]; refresh(); }
+    draw(); return;
+  }
+  if (tool === 'door') {
+    const near = nearestEdge(p); if (!near) { toast('Click on a wall or outline edge'); return; }
+    snapshot(); const last = S.openings[S.openings.length - 1]; const kind = last ? last.kind : 'door', o = OPEN_TYPES[kind];
+    const op = { id: uid(), ref: near.ref, t: near.t, kind, w: o.w, h: o.h, sill: o.sill };
+    S.openings.push(op); select(op.id); return;
+  }
+  if (tool === 'grid') {
+    const xs = await ask('Column spacings east-west', 'From the first column line, e.g. 29\'-2", 29, 29, 29, 29, 29\'-2"', '');
+    if (xs === null) return;
+    const ys = await ask('Column spacings north-south', 'From the first column line going down the sheet, e.g. 35, 34\'-6", 35', '');
+    if (ys === null) return;
+    const px = xs.split(',').map(parseLen).filter(v => v > 0), py = ys.split(',').map(parseLen).filter(v => v > 0);
+    if (!px.length && !py.length) { toast('No spacings recognised'); return; }
+    snapshot(); const gr = { id: uid(), origin: p, xs: px, ys: py, size: 0.5, interiorOnly: true, height: null }; S.grids.push(gr); select(gr.id); setTool('pan'); return;
+  }
+}
+function finishVolume() {
+  if (draft.length < 3) return; snapshot();
+  const n = S.volumes.length, type = n === 0 ? 'precast' : 'cmu';
+  const v = { id: uid(), name: n === 0 ? 'Main building' : `Wing ${n}`, pts: draft.slice(), type, height: WALL_TYPES[type].height, floor: 0, slab: 0.5,
+    roof: WALL_TYPES[type].height - 1.5, roofThk: 0.4, edgeHeights: {} };
+  S.volumes.push(v); draft = []; hover = null; select(v.id); toast('Outline closed. Set its wall type and heights in the panel.');
+}
+function removeSel() {
+  if (!sel) return; snapshot(); const id = sel.id;
+  S.volumes = S.volumes.filter(x => x.id !== id); S.walls = S.walls.filter(x => x.id !== id); S.grids = S.grids.filter(x => x.id !== id);
+  S.openings = S.openings.filter(o => o.id !== id && o.ref.vol !== id && o.ref.wall !== id); select(null);
+}
+
+// ------------------------------------------------------------------ side panel
+const HINTS = {
+  pan: 'Drag to move the sheet, scroll to zoom. Click an outline, wall or opening to edit it.',
+  scale: '<b>Click both ends of a dimension you can read</b>, the longer the better (an overall building dimension is ideal), then type its length.',
+  volume: '<b>Click each outside corner of the building</b>, going around. Lines snap square; hold Shift for angles. Click the first point or press Enter to close. Trace each part with a different wall type or height (e.g. an office wing) as its own outline.',
+  wall: '<b>Click to draw interior walls</b> as connected lines; Esc to stop. Set type and height in the panel.',
+  door: '<b>Click on any wall or outline edge</b> to add a door or window there. Pick its size in the panel.',
+  grid: '<b>Click the first column intersection</b> (e.g. A-1), then enter the spacings from the drawing. Columns are placed inside the building outline.',
+};
+function setTool(t) { tool = t; draft = []; hover = null; document.querySelectorAll('[data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === t)); $('#hint').innerHTML = HINTS[t]; cv.style.cursor = t === 'pan' ? 'grab' : 'crosshair'; draw(); }
+document.querySelectorAll('[data-tool]').forEach(b => b.addEventListener('click', () => setTool(b.dataset.tool)));
+function select(id) { sel = id ? { id } : null; refresh(); }
+const find = (id) => S.volumes.find(x => x.id === id) || S.walls.find(x => x.id === id) || S.openings.find(x => x.id === id) || S.grids.find(x => x.id === id);
+
+function field(label, value, onchange, type = 'text') {
+  const l = document.createElement('label'); l.className = 'f'; l.textContent = label;
+  const i = document.createElement('input'); i.value = value; i.type = type;
+  i.addEventListener('change', () => { snapshot(); onchange(i.value); refresh(); }); l.appendChild(i); return l;
+}
+function choice(label, value, options, onchange) {
+  const l = document.createElement('label'); l.className = 'f'; l.textContent = label;
+  const s = document.createElement('select'); for (const [k, v] of Object.entries(options)) s.add(new Option(v.label || v, k)); s.value = value;
+  s.addEventListener('change', () => { snapshot(); onchange(s.value); refresh(); }); l.appendChild(s); return l;
+}
+function renderProps() {
+  const P = $('#props'); P.innerHTML = '';
+  const el = sel && find(sel.id); if (!el) return;
+  const h = document.createElement('h2'); P.appendChild(h);
+  const len = (v) => parseLen(v);
+  if (el.pts) {
+    h.textContent = 'Outline';
+    P.append(field('Name', el.name, v => el.name = v));
+    P.append(choice('Exterior wall type', el.type, WALL_TYPES, v => { el.type = v; }));
+    const r = document.createElement('div'); r.className = 'row2';
+    r.append(field('Top of wall', fmtLen(el.height), v => { const x = len(v); if (x > 0) el.height = x; }), field('Top of roof', fmtLen(el.roof), v => { const x = len(v); if (x > 0) el.roof = x; }));
+    P.append(r);
+    const r2 = document.createElement('div'); r2.className = 'row2';
+    r2.append(field('Floor level', fmtLen(el.floor), v => { const x = len(v); if (!isNaN(x)) el.floor = x; }), field('Slab thickness', fmtLen(el.slab), v => { const x = len(v); if (x > 0) el.slab = x; }));
+    P.append(r2);
+    const f = ftPer(); const area = Math.abs(polyArea(el.pts)) * f * f;
+    const d = document.createElement('div'); d.className = 'hint'; d.innerHTML = `${el.pts.length} corners, <b>${Math.round(area).toLocaleString()} SF</b>. Walls taller than the roof become parapets. To vary one wall's height (e.g. a lower south wall), set it below.`; P.append(d);
+    const edges = document.createElement('label'); edges.className = 'f'; edges.textContent = 'Wall heights by side';
+    const s = document.createElement('select'); s.add(new Option('Pick a wall…', ''));
+    el.pts.forEach((a, i) => { const b = el.pts[(i + 1) % el.pts.length]; const L = Math.hypot(b[0] - a[0], b[1] - a[1]) * f; const dir = Math.abs(b[0] - a[0]) > Math.abs(b[1] - a[1]) ? (b[0] > a[0] ? 'E' : 'W') : (b[1] > a[1] ? 'S' : 'N');
+      s.add(new Option(`Wall ${i + 1}: ${fmtLen(L)} heading ${dir}${el.edgeHeights[i] ? ' @ ' + fmtLen(el.edgeHeights[i]) : ''}`, i)); });
+    s.addEventListener('change', async () => { if (s.value === '') return; const i = +s.value;
+      const v = await ask(`Height of wall ${i + 1}`, 'Leave blank to use the outline height', el.edgeHeights[i] ? fmtLen(el.edgeHeights[i]) : '');
+      if (v === null) return; snapshot(); const x = parseLen(v); if (x > 0) el.edgeHeights[i] = x; else delete el.edgeHeights[i]; refresh(); });
+    edges.appendChild(s); P.append(edges);
+  } else if (el.a) {
+    h.textContent = 'Interior wall';
+    P.append(choice('Wall type', el.type, WALL_TYPES, v => { el.type = v; if (!el.height) el.height = WALL_TYPES[v].height; }));
+    P.append(field('Height', fmtLen(el.height), v => { const x = len(v); if (x > 0) el.height = x; }));
+    const d = document.createElement('div'); d.className = 'hint'; d.textContent = `Length ${fmtLen(Math.hypot(el.b[0] - el.a[0], el.b[1] - el.a[1]) * ftPer())}`; P.append(d);
+  } else if (el.ref) {
+    h.textContent = 'Opening';
+    P.append(choice('Type', el.kind, OPEN_TYPES, v => { const o = OPEN_TYPES[v]; el.kind = v; el.w = o.w; el.h = o.h; el.sill = o.sill; }));
+    const r = document.createElement('div'); r.className = 'row2';
+    r.append(field('Width', fmtLen(el.w), v => { const x = len(v); if (x > 0) el.w = x; }), field('Height', fmtLen(el.h), v => { const x = len(v); if (x > 0) el.h = x; }));
+    P.append(r, field('Sill above floor', fmtLen(el.sill), v => { const x = len(v); if (!isNaN(x)) el.sill = x; }));
+  } else if (el.xs) {
+    h.textContent = 'Column grid';
+    P.append(field('East-west spacings', el.xs.map(fmtLen).join(', '), v => el.xs = v.split(',').map(parseLen).filter(x => x > 0)));
+    P.append(field('North-south spacings', el.ys.map(fmtLen).join(', '), v => el.ys = v.split(',').map(parseLen).filter(x => x > 0)));
+    P.append(field('Column size', fmtLen(el.size), v => { const x = len(v); if (x > 0) el.size = x; }));
+    const c = choice('Place columns', el.interiorOnly ? 'in' : 'all', { in: 'Inside the building only (skip wall lines)', all: 'At every intersection' }, v => el.interiorOnly = v === 'in'); P.append(c);
+  }
+  const del = document.createElement('button'); del.textContent = 'Delete'; del.style.marginTop = '10px'; del.onclick = removeSel; P.append(del);
+}
+function renderList() {
+  const L = $('#list'); L.innerHTML = '';
+  const add = (id, color, text, extra) => { const d = document.createElement('div'); d.className = 'item' + (sel && sel.id === id ? ' sel' : ''); d.innerHTML = `<i style="background:${color}"></i><span>${text}</span>`; d.onclick = () => select(id); L.append(d); };
+  const f = ftPer();
+  S.volumes.forEach(v => add(v.id, WALL_TYPES[v.type].color, `${v.name}: ${WALL_TYPES[v.type].label}, ${fmtLen(v.height)}${f ? `, ${Math.round(Math.abs(polyArea(v.pts)) * f * f).toLocaleString()} SF` : ''}`));
+  S.walls.forEach((w, i) => add(w.id, '#2e9e44', `Wall ${i + 1}: ${WALL_TYPES[w.type].label}, ${fmtLen(w.height)}`));
+  S.openings.forEach((o, i) => add(o.id, '#e0321f', `${OPEN_TYPES[o.kind].cls === 'IfcWindow' ? 'Window' : 'Door'} ${i + 1}: ${fmtLen(o.w)} x ${fmtLen(o.h)}`));
+  S.grids.forEach(gr => add(gr.id, '#7a2fbf', `Column grid: ${gr.xs.length + 1} x ${gr.ys.length + 1} lines`));
+  if (!L.children.length) L.innerHTML = '<div class="hint">Nothing traced yet.</div>';
+}
+const polyArea = (p) => p.reduce((s, a, i) => { const b = p[(i + 1) % p.length]; return s + a[0] * b[1] - b[0] * a[1]; }, 0) / 2;
+function refresh() { S.name = $('#pName').value; renderProps(); renderList(); draw(); if (show3d) rebuild3d(); }
+$('#pName').addEventListener('change', () => { S.name = $('#pName').value; });
+
+// ------------------------------------------------------------------ model: trace -> solids in plan feet (x east, y south, z up)
+// solid = { cls, name, cat, disc, kind: 'box', o:[x,y,z], dir:[dx,dy], len, thk, h } or { kind: 'prism', poly:[[x,y]..], z0, z1 }
+function buildModel() {
+  const f = ftPer(); if (!f) return null;
+  const all = [...S.volumes.flatMap(v => v.pts), ...S.walls.flatMap(w => [w.a, w.b])];
+  if (!all.length) return null;
+  const ox = Math.min(...all.map(p => p[0])), oy = Math.min(...all.map(p => p[1]));
+  const P = (p) => [(p[0] - ox) * f, (p[1] - oy) * f];
+  const out = [];
+  const wallRun = (a, b, t, z0, z1, side, name, wtype, gaps) => {
+    // a, b in feet; the traced line is the outer face; offset the wall by t toward `side` (+1 left, -1 right)
+    const L = Math.hypot(b[0] - a[0], b[1] - a[1]); if (L < 0.05) return;
+    const ux = (b[0] - a[0]) / L, uy = (b[1] - a[1]) / L;
+    const nrm = side === 0 ? [-uy, ux] : [-uy * side, ux * side];
+    // exterior: the traced line is the outer face; interior: the wall is centred on the line
+    const base = side === 0 ? [a[0] - nrm[0] * t / 2, a[1] - nrm[1] * t / 2] : [a[0], a[1]];
+    const piece = (s0, s1, za, zb, cls, nm, cat, disc) => { if (s1 - s0 < 0.02 || zb - za < 0.02) return;
+      out.push({ kind: 'box', cls, name: nm, cat, disc, o: [base[0] + ux * s0, base[1] + uy * s0, za], dir: [ux, uy], n: nrm, len: s1 - s0, thk: cls === 'IfcWall' ? t : Math.max(0.15, t * 0.35), h: zb - za, inset: cls === 'IfcWall' ? 0 : t * 0.32, wtype }); };
+    let cur = 0;
+    for (const gp of gaps.sort((x, y) => x.s0 - y.s0)) {
+      piece(cur, gp.s0, z0, z1, 'IfcWall', name, 'wall', 'arch');
+      if (gp.z0 > z0) piece(gp.s0, gp.s1, z0, z0 + gp.z0, 'IfcWall', name, 'wall', 'arch');
+      if (z0 + gp.z1 < z1) piece(gp.s0, gp.s1, z0 + gp.z1, z1, 'IfcWall', name, 'wall', 'arch');
+      piece(gp.s0, gp.s1, z0 + gp.z0, z0 + gp.z1, gp.cls, gp.name, 'opening', 'arch');
+      cur = gp.s1;
+    }
+    piece(cur, L, z0, z1, 'IfcWall', name, 'wall', 'arch');
+  };
+  const gapsFor = (ref, L) => S.openings.filter(o => JSON.stringify(o.ref) === JSON.stringify(ref)).map(o => {
+    const T = OPEN_TYPES[o.kind]; const c = o.t * L; return { s0: Math.max(0, c - o.w / 2), s1: Math.min(L, c + o.w / 2), z0: o.sill, z1: o.sill + o.h, cls: T.cls, name: T.label.replace(/\s+\d.*$/, '') + ` ${fmtLen(o.w)} x ${fmtLen(o.h)}` }; });
+  for (const v of S.volumes) {
+    const pts = v.pts.map(P); const ccw = polyArea(pts) > 0; // plan y points south, so a positive area here is clockwise on the sheet
+    const side = ccw ? 1 : -1; const T = WALL_TYPES[v.type];
+    pts.forEach((a, i) => { const b = pts[(i + 1) % pts.length]; const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      wallRun(a, b, T.t, v.floor, v.floor + (v.edgeHeights[i] || v.height), side, `${T.label} (${v.name})`, v.type, gapsFor({ vol: v.id, edge: i }, L)); });
+    out.push({ kind: 'prism', cls: 'IfcSlab', name: `Floor slab (${v.name})`, cat: 'structure', disc: 'struct', poly: pts, z0: v.floor - v.slab, z1: v.floor });
+    out.push({ kind: 'prism', cls: 'IfcRoof', name: `Roof (${v.name})`, cat: 'structure', disc: 'struct', poly: pts, z0: v.floor + v.roof - v.roofThk, z1: v.floor + v.roof });
+  }
+  for (const w of S.walls) {
+    const a = P(w.a), b = P(w.b), T = WALL_TYPES[w.type], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const host = S.volumes.find(v => inPoly([(w.a[0] + w.b[0]) / 2, (w.a[1] + w.b[1]) / 2], v.pts));
+    wallRun(a, b, T.t, host ? host.floor : 0, (host ? host.floor : 0) + w.height, 0, `${T.label} partition`, w.type, gapsFor({ wall: w.id }, L));
+  }
+  for (const gr of S.grids) {
+    const host = S.volumes[0];
+    for (const p of gridPoints(gr)) {
+      const inside = S.volumes.find(v => inPoly(p, v.pts));
+      if (gr.interiorOnly) { if (!inside) continue; const near = nearestEdgeDist(p, inside.pts) * f; if (near < 2.5) continue; }
+      const v = inside || host; const q = P(p), s = gr.size;
+      const top = v ? v.floor + v.roof - v.roofThk : 20;
+      out.push({ kind: 'box', cls: 'IfcColumn', name: `Column ${fmtLen(s)} square`, cat: 'structure', disc: 'struct', o: [q[0] - s / 2, q[1] - s / 2, v ? v.floor : 0], dir: [1, 0], n: [0, 1], len: s, thk: s, h: top - (v ? v.floor : 0), inset: 0 });
+    }
+  }
+  return out;
+}
+const nearestEdgeDist = (p, pts) => Math.min(...pts.map((a, i) => segDist(p, a, pts[(i + 1) % pts.length])));
+
+// solids -> triangle meshes (feet, plan coordinates) via three.js
+function solidGeometry(s) {
+  let geo;
+  if (s.kind === 'box') {
+    geo = new THREE.BoxGeometry(s.len, s.h, s.thk);
+    // box centred at the origin: x along the wall, y up, z across; move to the wall's corner frame
+    const m = new THREE.Matrix4();
+    const ux = s.dir[0], uz = s.dir[1], nx = s.n[0], nz = s.n[1];
+    const ox = s.o[0] + nx * s.inset, oz = s.o[1] + nz * s.inset;
+    const cx = ox + ux * s.len / 2 + nx * s.thk / 2, cz = oz + uz * s.len / 2 + nz * s.thk / 2, cy = s.o[2] + s.h / 2;
+    m.set(ux, 0, nx, cx, 0, 1, 0, cy, uz, 0, nz, cz, 0, 0, 0, 1);
+    geo.applyMatrix4(m);
+  } else {
+    const shape = new THREE.Shape(s.poly.map(([x, y]) => new THREE.Vector2(x, -y)));
+    geo = new THREE.ExtrudeGeometry(shape, { depth: s.z1 - s.z0, bevelEnabled: false });
+    geo.rotateX(-Math.PI / 2); geo.translate(0, s.z0, 0);
+  }
+  return geo;
+}
+const CAT_COLOR = { wall: 0xdcd9d2, opening: 0x86aebd, structure: 0xa39e96 };
+
+// ------------------------------------------------------------------ 3D preview
+let show3d = false, r3 = null;
+function init3d() {
+  const canvas = $('#view3d');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  const scene = new THREE.Scene(); scene.background = new THREE.Color(0xc9d1d5);
+  scene.add(new THREE.HemisphereLight(0xf4f6f7, 0x6b6456, 1.6)); const sun = new THREE.DirectionalLight(0xffffff, 1.3); sun.position.set(80, 140, 60); scene.add(sun);
+  const camera = new THREE.PerspectiveCamera(45, 1, 0.5, 5000);
+  const group = new THREE.Group(); scene.add(group);
+  r3 = { renderer, scene, camera, group, yaw: 0.75, pitch: 0.55, dist: 250, target: new THREE.Vector3() };
+  let drag = null;
+  canvas.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY }; canvas.setPointerCapture(e.pointerId); });
+  canvas.addEventListener('pointermove', (e) => { if (!drag) return; r3.yaw -= (e.clientX - drag.x) * 0.008; r3.pitch = Math.max(0.05, Math.min(1.5, r3.pitch + (e.clientY - drag.y) * 0.006)); drag = { x: e.clientX, y: e.clientY }; render3d(); });
+  canvas.addEventListener('pointerup', () => drag = null);
+  canvas.addEventListener('wheel', (e) => { e.preventDefault(); r3.dist *= Math.exp(e.deltaY * 0.0012); render3d(); }, { passive: false });
+}
+function rebuild3d() {
+  if (!r3) init3d();
+  r3.group.clear();
+  const model = buildModel(); if (!model) { render3d(); return; }
+  const mats = {};
+  const box = new THREE.Box3();
+  for (const s of model) {
+    const key = s.cls === 'IfcWindow' ? 'glass' : s.wtype || s.cat;
+    const col = s.cls === 'IfcWindow' ? 0x86aebd : s.cls === 'IfcDoor' ? 0x6d7c85 : s.wtype ? parseInt(WALL_TYPES[s.wtype].color.slice(1), 16) : CAT_COLOR[s.cat];
+    mats[key] = mats[key] || new THREE.MeshStandardMaterial({ color: col, roughness: 0.85, flatShading: true, transparent: s.cls === 'IfcRoof', opacity: s.cls === 'IfcRoof' ? 0.22 : 1, depthWrite: s.cls !== 'IfcRoof' });
+    const m = new THREE.Mesh(solidGeometry(s), mats[key]); r3.group.add(m); box.expandByObject(m);
+  }
+  box.getCenter(r3.target); const size = box.getSize(new THREE.Vector3()).length();
+  if (!r3.fitted && size > 0) { r3.dist = size * 1.15; r3.fitted = true; }
+  render3d();
+}
+function render3d() {
+  if (!r3 || !show3d) return;
+  const c = $('#view3d'); r3.renderer.setSize(c.clientWidth, c.clientHeight, false); r3.camera.aspect = c.clientWidth / Math.max(1, c.clientHeight); r3.camera.updateProjectionMatrix();
+  const t = r3.target; r3.camera.position.set(t.x + Math.sin(r3.yaw) * Math.cos(r3.pitch) * r3.dist, t.y + Math.sin(r3.pitch) * r3.dist, t.z + Math.cos(r3.yaw) * Math.cos(r3.pitch) * r3.dist);
+  r3.camera.lookAt(t); r3.renderer.render(r3.scene, r3.camera);
+}
+$('#toggle3d').addEventListener('click', () => { show3d = !show3d; if (r3) r3.fitted = false; $('#pane3d').hidden = !show3d; $('#stage').classList.toggle('split', show3d); $('#toggle3d').textContent = show3d ? 'Hide 3D' : 'Show 3D'; resize(); if (show3d) rebuild3d(); });
+
+// ------------------------------------------------------------------ Field Walk project export (same format as add_project.py)
+const b64 = (u8) => { let s = ''; const CH = 0x8000; for (let i = 0; i < u8.length; i += CH) s += String.fromCharCode.apply(null, u8.subarray(i, i + CH)); return btoa(s); };
+const ifcGuid = () => { const c = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$'; let s = c[Math.floor(Math.random() * 4)]; for (let i = 0; i < 21; i++) s += c[Math.floor(Math.random() * 64)]; return s; };
+const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'traced';
+function buildProject() {
+  const model = buildModel(); if (!model || !model.length) { toast('Trace an outline first'); return null; }
+  const id = slug(S.name), container = `${id.slice(0, 3).toUpperCase().padEnd(3, 'X')}-DUL-ZZ-ZZ-M3-Z-0001`;
+  // viewer space is metres: x east, y up, z south; plan feet are x east, y south
+  // solidGeometry already uses viewer axes (x east, y up, z = plan y = south); only convert feet to metres
+  const geos = model.map(s => { const p = solidGeometry(s).toNonIndexed().attributes.position.array;
+    const pos = new Float32Array(p.length); for (let i = 0; i < p.length; i++) pos[i] = p[i] * FT; return pos; });
+  let lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+  for (const p of geos) for (let i = 0; i < p.length; i += 3) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], p[i + k]); hi[k] = Math.max(hi[k], p[i + k]); }
+  const span = hi.map((h, k) => Math.max(h - lo[k], 1e-6));
+  const nv = geos.reduce((s, p) => s + p.length / 3, 0);
+  const q = new Uint16Array(nv * 3), idx = new Uint16Array(nv);
+  const els = []; let v0 = 0;
+  model.forEach((s, k) => { const p = geos[k], n = p.length / 3;
+    for (let i = 0; i < n; i++) { for (let c = 0; c < 3; c++) q[(v0 + i) * 3 + c] = Math.round((p[i * 3 + c] - lo[c]) / span[c] * 65535); idx[v0 + i] = i; }
+    els.push({ i: k, guid: ifcGuid(), cls: s.cls, name: s.name, type: null, storey: 'Level 1', disc: s.disc, cat: s.cat,
+      psets: { Pset_FieldWalk_Trace: { source: `${S.pdfName || 'PDF'} sheet ${S.page}`, method: 'Traced in Field Walk', ...(s.kind === 'box' ? { length_ft: +s.len.toFixed(2), height_ft: +s.h.toFixed(2) } : { area_sf: Math.round(Math.abs(polyArea(s.poly))) }) } },
+      v0, vn: n, t0: v0, tn: n });
+    v0 += n; });
+  const level = { level: 'L0', lo, hi, els, pos: b64(new Uint8Array(q.buffer)), idx: b64(new Uint8Array(idx.buffer)) };
+  const levelJson = JSON.stringify(level);
+  const counts = {}; for (const s of model) counts[s.cat] = (counts[s.cat] || 0) + 1;
+  const manifest = { title: S.name, slug: id, name: `${S.name}: traced from ${S.pdfName || 'PDF'}`, info: { container }, count: model.length,
+    bounds: [lo, hi], building: [lo, hi], origin: [0, 0, 0], y0: 0, catOverride: {}, catCounts: counts, clashes: [],
+    levels: [{ id: 'L0', label: 'Level 1', y: 0, file: 'level-L0.json', files: ['level-L0.json'], bytes: levelJson.length, n: model.length, tris: nv / 3, i0: 0, discs: [...new Set(model.map(s => s.disc))] }] };
+  const f = ftPer(); const all = S.volumes.flatMap(v => v.pts); const ox = Math.min(...all.map(p => p[0])), oy = Math.min(...all.map(p => p[1]));
+  const W = (Math.max(...all.map(p => p[0])) - ox) * f, Dd = (Math.max(...all.map(p => p[1])) - oy) * f, sc = 300 / Math.max(W, Dd, 1);
+  const thumb = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${Math.round(W * sc + 20)} ${Math.round(Dd * sc + 20)}"><rect width="100%" height="100%" fill="#e9ecee"/>${
+    S.volumes.map(v => `<polygon points="${v.pts.map(p => `${((p[0] - ox) * f * sc + 10).toFixed(1)},${((p[1] - oy) * f * sc + 10).toFixed(1)}`).join(' ')}" fill="${WALL_TYPES[v.type].color}" stroke="#55666f" stroke-width="2"/>`).join('')}${
+    S.walls.map(w => `<line x1="${((w.a[0] - ox) * f * sc + 10).toFixed(1)}" y1="${((w.a[1] - oy) * f * sc + 10).toFixed(1)}" x2="${((w.b[0] - ox) * f * sc + 10).toFixed(1)}" y2="${((w.b[1] - oy) * f * sc + 10).toFixed(1)}" stroke="#55666f" stroke-width="1.5"/>`).join('')}</svg>`;
+  const area = Math.round(S.volumes.reduce((s, v) => s + Math.abs(polyArea(v.pts)), 0) * f * f);
+  const entry = { id, title: S.name, container, disciplines: ['arch', 'struct'], elements: model.length, levels: 1, hard: 0, penetrations: 0,
+    triangles: nv / 3, added: new Date().toISOString().slice(0, 10), note: `Traced from ${S.pdfName || 'a PDF plan'}, ${area.toLocaleString()} SF shell` };
+  return { id, manifest, levelJson, thumb, entry };
+}
+$('#toFieldWalk').addEventListener('click', () => {
+  const p = buildProject(); if (!p) return;
+  try {
+    localStorage.setItem('fieldwalk-local-' + p.id, JSON.stringify({ manifest: p.manifest, levels: { 'level-L0.json': p.levelJson }, thumb: p.thumb, entry: p.entry, trace: S }));
+    const list = JSON.parse(localStorage.getItem('fieldwalk-local-list') || '[]').filter(x => x !== p.id); list.push(p.id);
+    localStorage.setItem('fieldwalk-local-list', JSON.stringify(list));
+  } catch (err) { toast('This browser could not store the project; use Download project instead'); return; }
+  window.open(`viewer.html?local=${encodeURIComponent(p.id)}`, '_blank');
+});
+
+// store-only zip
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+const crc32 = (u8) => { let c = 0xffffffff; for (const b of u8) c = CRC[(c ^ b) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
+function zip(files) {
+  const enc = new TextEncoder(), parts = [], cen = []; let off = 0;
+  const d = new Date(), dt = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1), dd = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+  for (const [name, body] of files) {
+    const nb = enc.encode(name), data = typeof body === 'string' ? enc.encode(body) : body, crc = crc32(data);
+    const h = new DataView(new ArrayBuffer(30)); h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint16(10, dt, true); h.setUint16(12, dd, true);
+    h.setUint32(14, crc, true); h.setUint32(18, data.length, true); h.setUint32(22, data.length, true); h.setUint16(26, nb.length, true); parts.push(new Uint8Array(h.buffer), nb, data);
+    const c = new DataView(new ArrayBuffer(46)); c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true); c.setUint16(12, dt, true); c.setUint16(14, dd, true);
+    c.setUint32(16, crc, true); c.setUint32(20, data.length, true); c.setUint32(24, data.length, true); c.setUint16(28, nb.length, true); c.setUint32(42, off, true); cen.push(new Uint8Array(c.buffer), nb);
+    off += 30 + nb.length + data.length;
+  }
+  const cs = cen.reduce((s, a) => s + a.length, 0), end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true); end.setUint32(12, cs, true); end.setUint32(16, off, true);
+  return new Blob([...parts, ...cen, new Uint8Array(end.buffer)], { type: 'application/zip' });
+}
+function download(name, data, type) { const url = URL.createObjectURL(data instanceof Blob ? data : new Blob([data], { type })); const a = document.createElement('a'); a.href = url; a.download = name; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000); }
+$('#exportZip').addEventListener('click', async () => {
+  const p = buildProject(); if (!p) return;
+  let index = { projects: [] };
+  try { const r = await fetch('projects/index.json', { cache: 'no-store' }); if (r.ok) index = await r.json(); } catch (e) {}
+  index.projects = (index.projects || []).filter(x => x.id !== p.id).concat([p.entry]);
+  download(`${p.id}-project.zip`, zip([[`projects/${p.id}/manifest.json`, JSON.stringify(p.manifest)], [`projects/${p.id}/levels/level-L0.json`, p.levelJson],
+    [`projects/${p.id}/thumb.svg`, p.thumb], [`projects/${p.id}/trace.json`, JSON.stringify(S)], ['projects/index.json', JSON.stringify(index, null, 1)]]));
+  toast('Upload the projects folder from this zip to GitHub, and the project appears on the launch page');
+});
+
+// ------------------------------------------------------------------ IFC4 export (metres; IFC X east, Y north, Z up)
+function exportIfc() {
+  const model = buildModel(); if (!model || !model.length) { toast('Trace an outline first'); return; }
+  const L = []; let n = 0; const e = (s) => { L.push(`#${++n}=${s};`); return `#${n}`; };
+  const str = (s) => `'${String(s).replace(/\\/g, '\\\\').replace(/'/g, "''").replace(/[^\x20-\x7e]/g, '?')}'`;
+  const num = (v) => { const s = (+v).toFixed(6).replace(/0+$/, ''); return s.endsWith('.') ? s + '0' : s; };
+  const pt3 = (x, y, z) => e(`IFCCARTESIANPOINT((${num(x)},${num(y)},${num(z)}))`), pt2 = (x, y) => e(`IFCCARTESIANPOINT((${num(x)},${num(y)}))`);
+  const dir = (x, y, z) => e(`IFCDIRECTION((${num(x)},${num(y)},${num(z)}))`);
+  const origin = pt3(0, 0, 0), zUp = dir(0, 0, 1), xAx = dir(1, 0, 0);
+  const wcs = e(`IFCAXIS2PLACEMENT3D(${origin},${zUp},${xAx})`);
+  const ctx = e(`IFCGEOMETRICREPRESENTATIONCONTEXT($,'Model',3,1.E-05,${wcs},$)`);
+  const body = e(`IFCGEOMETRICREPRESENTATIONSUBCONTEXT('Body','Model',*,*,*,*,${ctx},$,.MODEL_VIEW.,$)`);
+  const unit = e(`IFCSIUNIT(*,.LENGTHUNIT.,$,.METRE.)`), units = e(`IFCUNITASSIGNMENT((${unit}))`);
+  const project = e(`IFCPROJECT('${ifcGuid()}',$,${str(S.name)},$,$,$,$,(${ctx}),${units})`);
+  const lp = (rel) => e(`IFCLOCALPLACEMENT(${rel || '$'},${e(`IFCAXIS2PLACEMENT3D(${pt3(0, 0, 0)},$,$)`)})`);
+  const sitePl = lp(), bldPl = lp(sitePl), stPl = lp(bldPl);
+  const site = e(`IFCSITE('${ifcGuid()}',$,'Site',$,$,${sitePl},$,$,.ELEMENT.,$,$,$,$,$)`);
+  const bld = e(`IFCBUILDING('${ifcGuid()}',$,${str(S.name)},$,$,${bldPl},$,$,.ELEMENT.,$,$,$)`);
+  const storey = e(`IFCBUILDINGSTOREY('${ifcGuid()}',$,'Level 1',$,$,${stPl},$,$,.ELEMENT.,0.)`);
+  e(`IFCRELAGGREGATES('${ifcGuid()}',$,$,$,${project},(${site}))`); e(`IFCRELAGGREGATES('${ifcGuid()}',$,$,$,${site},(${bld}))`); e(`IFCRELAGGREGATES('${ifcGuid()}',$,$,$,${bld},(${storey}))`);
+  const elems = [];
+  for (const s of model) {
+    let place, solid;
+    if (s.kind === 'box') {
+      const ux = s.dir[0], uy = -s.dir[1], nx = s.n[0], ny = -s.n[1];
+      const ox = (s.o[0] + s.n[0] * s.inset) * FT, oy = -(s.o[1] + s.n[1] * s.inset) * FT, oz = s.o[2] * FT;
+      // local frame: x along the run, y across (toward the wall's inner side), z up
+      const ax = e(`IFCAXIS2PLACEMENT3D(${pt3(ox, oy, oz)},${dir(0, 0, 1)},${dir(ux, uy, 0)})`);
+      place = e(`IFCLOCALPLACEMENT(${stPl},${ax})`);
+      // IFC's local y is z × x; place the rectangle on whichever side the wall's normal points
+      const cross = (0 * 0 - 1 * uy) * nx + (1 * ux - 0 * 0) * ny; // dot(z × x, n)
+      const cy = cross >= 0 ? s.thk / 2 : -s.thk / 2;
+      const prof = e(`IFCRECTANGLEPROFILEDEF(.AREA.,$,${e(`IFCAXIS2PLACEMENT2D(${pt2(s.len / 2 * FT, cy * FT)},$)`)},${num(s.len * FT)},${num(s.thk * FT)})`);
+      solid = e(`IFCEXTRUDEDAREASOLID(${prof},${e(`IFCAXIS2PLACEMENT3D(${pt3(0, 0, 0)},$,$)`)},${dir(0, 0, 1)},${num(s.h * FT)})`);
+    } else {
+      place = e(`IFCLOCALPLACEMENT(${stPl},${e(`IFCAXIS2PLACEMENT3D(${pt3(0, 0, s.z0 * FT)},$,$)`)})`);
+      const pts = s.poly.map(([x, y]) => pt2(x * FT, -y * FT)); pts.push(pts[0]);
+      const prof = e(`IFCARBITRARYCLOSEDPROFILEDEF(.AREA.,$,${e(`IFCPOLYLINE((${pts.join(',')}))`)})`);
+      solid = e(`IFCEXTRUDEDAREASOLID(${prof},${e(`IFCAXIS2PLACEMENT3D(${pt3(0, 0, 0)},$,$)`)},${dir(0, 0, 1)},${num((s.z1 - s.z0) * FT)})`);
+    }
+    const rep = e(`IFCSHAPEREPRESENTATION(${body},'Body','SweptSolid',(${solid}))`), pds = e(`IFCPRODUCTDEFINITIONSHAPE($,$,(${rep}))`);
+    const G = `'${ifcGuid()}',$,${str(s.name)},$,$,${place},${pds},$`;
+    let el;
+    if (s.cls === 'IfcWall') el = e(`IFCWALL(${G},.STANDARD.)`);
+    else if (s.cls === 'IfcColumn') el = e(`IFCCOLUMN(${G},.COLUMN.)`);
+    else if (s.cls === 'IfcSlab') el = e(`IFCSLAB(${G},.FLOOR.)`);
+    else if (s.cls === 'IfcRoof') el = e(`IFCSLAB(${G},.ROOF.)`);
+    else if (s.cls === 'IfcDoor') el = e(`IFCDOOR(${G},${num(s.h * FT)},${num(s.len * FT)},.DOOR.,$,$)`);
+    else if (s.cls === 'IfcWindow') el = e(`IFCWINDOW(${G},${num(s.h * FT)},${num(s.len * FT)},.WINDOW.,$,$)`);
+    elems.push(el);
+  }
+  e(`IFCRELCONTAINEDINSPATIALSTRUCTURE('${ifcGuid()}',$,$,$,(${elems.join(',')}),${storey})`);
+  const head = `ISO-10303-21;\nHEADER;\nFILE_DESCRIPTION(('ViewDefinition [ReferenceView]'),'2;1');\nFILE_NAME(${str(slug(S.name) + '.ifc')},'${new Date().toISOString().slice(0, 19)}',('Field Walk'),('Field Walk'),'Field Walk tracer','Field Walk tracer','');\nFILE_SCHEMA(('IFC4'));\nENDSEC;\nDATA;\n`;
+  download(`${slug(S.name)}.ifc`, head + L.join('\n') + '\nENDSEC;\nEND-ISO-10303-21;\n', 'application/octet-stream');
+  toast('IFC saved. It opens in Revit, Navisworks or BIMcollab, and runs through add_project.py.');
+}
+$('#exportIfc').addEventListener('click', exportIfc);
+
+// ------------------------------------------------------------------ trace files
+$('#saveTrace').addEventListener('click', () => { S.name = $('#pName').value; download(`${slug(S.name)}-trace.json`, JSON.stringify(S, null, 1), 'application/json'); });
+$('#traceIn').addEventListener('change', async (e) => { const f = e.target.files[0]; if (!f) return; try { const t = JSON.parse(await f.text()); if (!t.volumes) throw 0; snapshot(); S = t; $('#pName').value = S.name || 'Traced building'; if (pdf) await showPage(S.page || 1); refresh(); toast(`Trace loaded${S.pdfName ? `; open ${S.pdfName} to see it on the sheet` : ''}`); } catch (err) { toast('That is not a Field Walk trace file'); } e.target.value = ''; });
+$('#pdfIn').addEventListener('change', (e) => { const f = e.target.files[0]; if (f) openPdf(f); e.target.value = ''; });
+$('#page').addEventListener('change', (e) => showPage(+e.target.value));
+$('#undo').addEventListener('click', undo);
+addEventListener('resize', resize);
+setTool('pan'); resize(); refresh();
+window.__tracer = { get S() { return S; }, set S(v) { S = v; refresh(); }, openPdf, showPage, click: (p) => click(p), finishVolume, setTool, buildModel, buildProject, exportIfc, select, refresh, toggle3d: () => $('#toggle3d').click() };
+})();
+</script>
+</body>
+</html>
