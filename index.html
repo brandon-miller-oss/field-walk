@@ -20,6 +20,9 @@ html, body { margin: 0; background: var(--paper); color: var(--ink); }
 .bar p { margin: 0; color: #9fb0b9; font-size: 16px; }
 main { max-width: 1120px; margin: 0 auto; padding: 28px 24px 48px; }
 h2 { font-size: 20px; margin: 0 0 14px; }
+.head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; } .head h2 { margin: 0; }
+.trace { background: var(--slate); color: #eef2f3; text-decoration: none; font-weight: 700; border-radius: 10px; padding: 10px 14px; }
+.trace:hover { background: #26333b; } .local { font-size: 12px; font-weight: 700; color: #6d44d8; background: #efe9fd; border-radius: 99px; padding: 2px 8px; margin-left: 6px; vertical-align: middle; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; }
 .thumb { background: #e9ecee; aspect-ratio: 16 / 10; display: grid; place-items: center; overflow: hidden; }
@@ -51,7 +54,7 @@ pre { background: var(--slate); color: #eef2f3; padding: 14px 16px; border-radiu
 <body>
 <div class="bar"><div class="bar-in"><h1>Field <span>Walk</span></h1><p>VR model review and clash walkthroughs</p></div></div>
 <main>
-  <h2>Projects</h2>
+  <div class="head"><h2>Projects</h2><a class="trace" href="trace.html">Trace a plan from a PDF</a></div>
   <div class="grid" id="grid"><p class="empty">Loading projects…</p></div>
 
   <section class="add" aria-labelledby="addh">
@@ -74,7 +77,11 @@ python add_project.py --id myproject --name "My Project" \
   try { const r = await fetch('projects/index.json', { cache: 'no-store' }); if (!r.ok) throw new Error(r.status); idx = await r.json(); }
   catch (err) { grid.innerHTML = '<p class="empty">No projects found. Add one with add_project.py, or check that the projects folder was uploaded.</p>'; return; }
   const read = (k) => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } };
-  grid.innerHTML = (idx.projects || []).map(p => {
+  // projects traced in this browser that have not been uploaded yet
+  let locals = [];
+  try { locals = JSON.parse(localStorage.getItem('fieldwalk-local-list') || '[]').map(id => { const d = JSON.parse(localStorage.getItem('fieldwalk-local-' + id) || 'null'); return d && { ...d.entry, local: true, thumbData: d.thumb }; }).filter(Boolean); } catch (e) {}
+  const listed = new Set((idx.projects || []).map(p => p.id));
+  grid.innerHTML = [...(idx.projects || []), ...locals.filter(p => !listed.has(p.id))].map(p => {
     const sess = read('fieldwalk-session-' + p.container) || {};
     const st = STATE[sess.state || 'Shared'];
     const rev = ((sess.state === 'Published' || sess.state === 'Archived') ? 'C' : 'P') + String(sess.rev || 1).padStart(2, '0');
@@ -82,9 +89,9 @@ python add_project.py --id myproject --name "My Project" \
     const lastTxt = last && ((last.issues || []).length || (last.edits || []).length)
       ? `Last session: ${(last.issues || []).length} issues, ${(last.edits || []).length} edits, saved ${new Date(last.saved).toLocaleDateString()}` : '';
     return `<article class="card">
-      <div class="thumb"><img src="projects/${encodeURIComponent(p.id)}/thumb.svg" alt="Plan view of ${esc(p.title)}" loading="lazy"></div>
+      <div class="thumb"><img src="${p.local ? 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(p.thumbData || '') : `projects/${encodeURIComponent(p.id)}/thumb.svg`}" alt="Plan view of ${esc(p.title)}" loading="lazy"></div>
       <div class="body">
-        <h3>${esc(p.title)}</h3>
+        <h3>${esc(p.title)}${p.local ? '<span class="local">On this computer</span>' : ''}</h3>
         ${p.note ? `<p class="note">${esc(p.note)}</p>` : ''}
         <div class="iso"><i style="background:${st[1]}"></i>${esc(p.container)}  ${rev}  ${esc(sess.code || 'S1')} ${st[0]}</div>
         <div class="stats">
@@ -95,7 +102,7 @@ python add_project.py --id myproject --name "My Project" \
         </div>
         <div class="chips">${(p.disciplines || []).map(d => `<span class="chip">${DISC[d] || esc(d)}</span>`).join('')}</div>
         <div class="last">${esc(lastTxt)}</div>
-        <a class="open" href="viewer.html?p=${encodeURIComponent(p.id)}">Open project</a>
+        <a class="open" href="viewer.html?${p.local ? 'local' : 'p'}=${encodeURIComponent(p.id)}">Open project</a>
       </div></article>`;
   }).join('') || '<p class="empty">No projects yet.</p>';
 })();

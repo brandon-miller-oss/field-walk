@@ -85,18 +85,23 @@ const status = (t) => { $('#status').textContent = t; };
 
 // ---------------------------------------------------------------- data (manifest + per-level chunks)
 const PROJECT_ID = new URLSearchParams(location.search).get('p');
+const LOCAL_ID = new URLSearchParams(location.search).get('local');
+let LOCAL = null;
+if (LOCAL_ID) { try { LOCAL = JSON.parse(localStorage.getItem('fieldwalk-local-' + LOCAL_ID) || 'null'); } catch (err) { LOCAL = null; } }
 const EMBEDDED = ($('#model') || {}).textContent || '';
 const BASE = EMBEDDED.trim() ? '' : `projects/${encodeURIComponent(PROJECT_ID || '')}/`;
 let PKG;
 try {
   if (EMBEDDED.trim()) PKG = JSON.parse(EMBEDDED);
+  else if (LOCAL_ID) { if (!LOCAL) throw new Error('local project missing'); PKG = LOCAL.manifest; }
   else {
     if (!PROJECT_ID) { location.replace('index.html'); return; }
     const r = await fetch(BASE + 'manifest.json'); if (!r.ok) throw new Error(r.status);
     PKG = await r.json();
   }
 } catch (err) {
-  $('#loading').innerHTML = `Could not load project "${String(PROJECT_ID || '').replace(/[<>&"]/g, '')}". <a href="index.html">Back to projects</a>`; return;
+  $('#loading').innerHTML = LOCAL_ID ? 'That traced project is not saved in this browser. Open it from the tracer, or use Download project and upload it. <a href="index.html">Back to projects</a>'
+    : `Could not load project "${String(PROJECT_ID || '').replace(/[<>&"]/g, '')}". <a href="index.html">Back to projects</a>`; return;
 }
 const TITLE = PKG.title || 'Project', SLUG = (PKG.slug || TITLE).replace(/[^A-Za-z0-9-]+/g, '-');
 document.title = `Field Walk: ${TITLE}`;
@@ -198,8 +203,11 @@ function chunkUrl(l) { return CHUNK_URLS[l.id] || (BASE + 'levels/' + l.file); }
 function loadLevel(id) {
   if (levelLoads[id]) return levelLoads[id];
   const l = LEV[id]; levelState[id] = 'loading'; drawUI(); updateStatus();
-  levelLoads[id] = fetch(chunkUrl(l)).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
-    .then(ch => { buildLevel(ch); levelState[id] = 'ready'; applyPendingEdits(); if (fieldMode) applyFieldLOD(); applyLevel(id); if (clashOnly !== 'off') rebuildClashSet(); refreshMarkers(); drawUI(); updateStatus(); })
+  // big levels are split into several files; load them all
+  const urls = l.files && l.files.length > 1 && !CHUNK_URLS[l.id] ? l.files.map(f => BASE + 'levels/' + f) : [chunkUrl(l)];
+  levelLoads[id] = Promise.all(LOCAL ? (l.files || [l.file]).map(f => Promise.resolve(JSON.parse(LOCAL.levels[f])))
+    : urls.map(u => fetch(u).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })))
+    .then(parts => { parts.forEach(buildLevel); levelState[id] = 'ready'; applyPendingEdits(); if (fieldMode) applyFieldLOD(); applyLevel(id); if (clashOnly !== 'off') rebuildClashSet(); refreshMarkers(); drawUI(); updateStatus(); })
     .catch(err => { levelState[id] = 'error'; delete levelLoads[id]; toast(`Could not load ${l.label}`); drawUI(); updateStatus(); console.error(err); });
   return levelLoads[id];
 }
@@ -498,7 +506,7 @@ function refreshMarkers() {
       m4.compose(p.set(...x.c.at), q, s);
       im.setMatrixAt(n, m4); im.setColorAt(n, col);
     });
-    im.instanceMatrix.needsUpdate = true; im.instanceColor.needsUpdate = true;
+    im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; // null when a project has no clashes of this kind
   }
 }
 async function goToClash(n) {
