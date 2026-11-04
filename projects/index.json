@@ -21,6 +21,22 @@
    "note": "Autodesk Revit sample: mixed-use, 6 disciplines"
   },
   {
+   "id": "modera",
+   "title": "Modera Uptown (Denver)",
+   "container": "MOD-DUL-ZZ-ZZ-M3-Z-0001",
+   "disciplines": [
+    "struct",
+    "arch"
+   ],
+   "elements": 2820,
+   "levels": 12,
+   "hard": 0,
+   "penetrations": 0,
+   "triangles": 86422,
+   "added": "2026-11-03",
+   "note": "Courtesy of Davis Partnership Architects: 8 floors over 3 parking levels at 1590 Pearl St, built automatically from the 2022 construction set, LOD 200"
+  },
+  {
    "id": "mcbride",
    "title": "McBride Brothers (Louisville, 1996)",
    "container": "MCB-DUL-ZZ-ZZ-M3-Z-0001",
